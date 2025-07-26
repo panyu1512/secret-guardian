@@ -9,7 +9,7 @@ from typing import Dict, List, Pattern
 class SecretPatterns:
     """Class containing patterns for detecting secrets and API keys."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize detection patterns."""
         self._patterns = self._load_patterns()
 
@@ -73,7 +73,7 @@ class SecretPatterns:
 
     def get_patterns(self) -> Dict[str, Pattern[str]]:
         """Return all loaded patterns."""
-        return self._patterns
+        return dict(self._patterns)
 
     def get_pattern_names(self) -> List[str]:
         """Return names of all available patterns."""

@@ -14,7 +14,7 @@ from .scanner import SecretScanner
 
 @click.group()
 @click.version_option(version=__version__)
-def cli():
+def cli() -> None:
     """Secret Guardian - Detect secrets and API keys in repositories."""
     pass
 
@@ -43,7 +43,7 @@ def scan(
     exclude: tuple,
     output: str,
     fail_on_secrets: bool,
-):
+) -> None:
     """Scan a repository for secrets."""
     try:
         scanner = SecretScanner(
@@ -88,7 +88,7 @@ def scan(
 
 @cli.command()
 @click.argument("repo_path", type=click.Path(exists=True))
-def stats(repo_path: str):
+def stats(repo_path: str) -> None:
     """Show repository statistics."""
     try:
         scanner = SecretScanner(repo_path=repo_path)
@@ -113,7 +113,7 @@ def stats(repo_path: str):
 
 
 @cli.command()
-def patterns():
+def patterns() -> None:
     """List all available detection patterns."""
     from .patterns import SecretPatterns
 
@@ -127,7 +127,7 @@ def patterns():
         click.echo(f"{i:2d}. {name}")
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     cli()
 

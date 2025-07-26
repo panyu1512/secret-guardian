@@ -1,6 +1,4 @@
-"""
-Custom exceptions for Secret Guardian.
-"""
+from typing import List, Optional
 
 
 class SecretGuardianError(Exception):
@@ -12,7 +10,9 @@ class SecretGuardianError(Exception):
 class SecretFoundError(SecretGuardianError):
     """Exception raised when secrets are found in the code."""
 
-    def __init__(self, secrets_found: list, message: str = None):
+    def __init__(
+        self, secrets_found: List[object], message: Optional[str] = None
+    ):
         self.secrets_found = secrets_found
         if message is None:
             count = len(secrets_found)

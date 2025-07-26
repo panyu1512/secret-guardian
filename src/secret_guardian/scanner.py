@@ -138,7 +138,7 @@ class SecretScanner:
 
     def _scan_file(self, file_path: Path) -> List[SecretMatch]:
         """Scan an individual file for secrets."""
-        matches = []
+        matches: List[SecretMatch] = []
 
         try:
             with open(file_path, encoding="utf-8", errors="ignore") as f:
@@ -276,7 +276,9 @@ class SecretScanner:
         return False
 
     def scan(
-        self, raise_on_secrets: bool = False, include_env_check: bool = None
+        self,
+        raise_on_secrets: bool = False,
+        include_env_check: Optional[bool] = None,
     ) -> List[SecretMatch]:
         """
         Scan the repository for secrets and API keys.
@@ -320,13 +322,18 @@ class SecretScanner:
             hardcoded_count = len(high_conf)
 
             if hardcoded_count > 0:
-                msg = f"🚨 CRITICAL: {hardcoded_count} hardcoded secrets detected!"
+                msg = (
+                    f"🚨 CRITICAL: {hardcoded_count} hardcoded secrets "
+                    f"detected!"
+                )
                 print(msg)
                 print("   These secrets are directly embedded in your code!")
 
             if count > hardcoded_count:
                 other_count = count - hardcoded_count
-                msg = f"⚠️  WARNING: {other_count} other potential secrets found"
+                msg = (
+                    f"⚠️  WARNING: {other_count} other potential secrets found"
+                )
                 print(msg)
 
             print(f"\n📋 Details of all {count} findings:")
@@ -346,7 +353,8 @@ class SecretScanner:
 
         if filtered_matches and raise_on_secrets:
             raise SecretFoundError(
-                filtered_matches, f"Found {len(filtered_matches)} secrets in the code"
+                filtered_matches,
+                f"Found {len(filtered_matches)} secrets in the code"
             )
 
         return filtered_matches
@@ -366,7 +374,7 @@ class SecretScanner:
         report += "=" * 60 + "\n\n"
 
         # Group by file
-        files_with_secrets = {}
+        files_with_secrets: Dict[str, List[SecretMatch]] = {}
         for match in matches:
             if match.file_path not in files_with_secrets:
                 files_with_secrets[match.file_path] = []
