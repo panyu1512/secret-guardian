@@ -32,8 +32,7 @@ def cli() -> None:
     help="Output format",
 )
 @click.option(
-    "--fail-on-secrets",
-    is_flag=True,
+    "--fail-on-secrets/--no-fail-on-secrets",
     default=True,
     help="Fail if secrets are found (useful for CI/CD)",
 )
