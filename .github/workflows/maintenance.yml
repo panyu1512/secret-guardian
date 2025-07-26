@@ -93,11 +93,11 @@ jobs:
     - name: Run Secret Guardian on itself
       run: |
         echo "🔍 Running Secret Guardian self-scan:"
-        poetry run python -m secret_guardian scan --format json > self_scan.json
+        poetry run python -m secret_guardian scan --output json . > self_scan.json
         cat self_scan.json
         
         # Check if any secrets were found
-        SECRETS_COUNT=$(poetry run python -c "import json; data=json.load(open('self_scan.json')); print(len(data.get('secrets', [])))")
+        SECRETS_COUNT=$(poetry run python -c "import json; data=json.load(open('self_scan.json')); print(len(data.get('matches', [])))")
         
         if [ "$SECRETS_COUNT" -gt "0" ]; then
           echo "⚠️ Found $SECRETS_COUNT potential secrets in the codebase!"

@@ -100,7 +100,7 @@ jobs:
     
     - name: Run Secret Guardian scan
       run: |
-        poetry run python -m secret_guardian scan --format json > security_report.json
+        poetry run python -m secret_guardian scan --output json . > security_report.json
         cat security_report.json
     
     - name: Upload security report
