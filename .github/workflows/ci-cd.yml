@@ -1,0 +1,240 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  # Job 1: Code Quality and Testing
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+    
+    - name: Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --no-interaction --no-root
+    
+    - name: Install project
+      run: poetry install --no-interaction
+    
+    - name: Check code formatting with Ruff
+      run: |
+        poetry run ruff check .
+        poetry run ruff format --check .
+    
+    - name: Type checking with mypy
+      run: poetry run mypy src/secret_guardian
+    
+    - name: Run tests with pytest
+      run: |
+        poetry run pytest tests/ -v --cov=secret_guardian --cov-report=xml --cov-report=term-missing
+    
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # Job 2: Security scan with Secret Guardian itself
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Install dependencies
+      run: poetry install --no-interaction
+    
+    - name: Run Secret Guardian scan
+      run: |
+        poetry run python -m secret_guardian scan --format json > security_report.json
+        cat security_report.json
+    
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: security_report.json
+
+  # Job 3: Build and publish to PyPI
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Extract version from tag
+      id: tag_version
+      run: |
+        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+        echo "Tag version: $TAG_VERSION"
+    
+    - name: Extract version from pyproject.toml
+      id: project_version
+      run: |
+        PROJECT_VERSION=$(poetry version --short)
+        echo "project_version=$PROJECT_VERSION" >> $GITHUB_OUTPUT
+        echo "Project version: $PROJECT_VERSION"
+    
+    - name: Verify version match
+      run: |
+        if [ "${{ steps.tag_version.outputs.tag_version }}" != "${{ steps.project_version.outputs.project_version }}" ]; then
+          echo "❌ Version mismatch!"
+          echo "Tag version: ${{ steps.tag_version.outputs.tag_version }}"
+          echo "Project version: ${{ steps.project_version.outputs.project_version }}"
+          echo ""
+          echo "Please ensure the git tag matches the version in pyproject.toml"
+          echo "Current project version: ${{ steps.project_version.outputs.project_version }}"
+          echo "Expected tag: v${{ steps.project_version.outputs.project_version }}"
+          exit 1
+        else
+          echo "✅ Version match confirmed: ${{ steps.project_version.outputs.project_version }}"
+        fi
+    
+    - name: Install dependencies
+      run: poetry install --no-interaction
+    
+    - name: Build package
+      run: poetry build
+    
+    - name: Check package contents
+      run: |
+        echo "📦 Package contents:"
+        ls -la dist/
+        echo ""
+        echo "📋 Package metadata:"
+        poetry run twine check dist/*
+    
+    - name: Publish to Test PyPI
+      env:
+        POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        poetry config repositories.testpypi https://test.pypi.org/legacy/
+        poetry config pypi-token.testpypi $POETRY_PYPI_TOKEN_TESTPYPI
+        poetry publish -r testpypi --skip-existing
+    
+    - name: Publish to PyPI
+      env:
+        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        poetry config pypi-token.pypi $POETRY_PYPI_TOKEN_PYPI
+        poetry publish
+    
+    - name: Create deployment summary
+      run: |
+        echo "🚀 **Deployment Summary**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Version**: ${{ steps.project_version.outputs.project_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Tag**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Published to PyPI**: https://pypi.org/project/secret-guardian/${{ steps.project_version.outputs.project_version }}/" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **GitHub Release**: ${{ github.event.release.html_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🎉 **secret-guardian v${{ steps.project_version.outputs.project_version }} is now available on PyPI!**" >> $GITHUB_STEP_SUMMARY
+
+  # Job 4: Update documentation (optional)
+  docs:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'release' && github.event.action == 'published'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Install dependencies
+      run: poetry install --no-interaction
+    
+    - name: Generate updated examples
+      run: |
+        echo "# Installation" > INSTALL.md
+        echo "" >> INSTALL.md
+        echo "Install the latest version from PyPI:" >> INSTALL.md
+        echo "" >> INSTALL.md
+        echo "\`\`\`bash" >> INSTALL.md
+        echo "pip install secret-guardian==$(poetry version --short)" >> INSTALL.md
+        echo "\`\`\`" >> INSTALL.md
+        echo "" >> INSTALL.md
+        echo "Or with Poetry:" >> INSTALL.md
+        echo "" >> INSTALL.md
+        echo "\`\`\`bash" >> INSTALL.md
+        echo "poetry add secret-guardian==$(poetry version --short)" >> INSTALL.md
+        echo "\`\`\`" >> INSTALL.md
+    
+    - name: Upload installation guide
+      uses: actions/upload-artifact@v3
+      with:
+        name: installation-guide
+        path: INSTALL.md

@@ -1,0 +1,167 @@
+name: Release Helper
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+      pre_release:
+        description: 'Is this a pre-release?'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Configure git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    
+    - name: Get current version
+      id: current_version
+      run: |
+        CURRENT_VERSION=$(poetry version --short)
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $CURRENT_VERSION"
+    
+    - name: Bump version
+      id: new_version
+      run: |
+        poetry version ${{ github.event.inputs.version_type }}
+        NEW_VERSION=$(poetry version --short)
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "New version: $NEW_VERSION"
+    
+    - name: Update changelog
+      run: |
+        # Create or update CHANGELOG.md
+        if [ ! -f CHANGELOG.md ]; then
+          cat > CHANGELOG.md << EOF
+        # Changelog
+        
+        All notable changes to this project will be documented in this file.
+        
+        The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+        and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+        
+        ## [Unreleased]
+        
+        ## [${{ steps.new_version.outputs.new_version }}] - $(date +%Y-%m-%d)
+        
+        ### Added
+        - Version ${{ steps.new_version.outputs.new_version }} release
+        
+        EOF
+        else
+          # Insert new version entry after [Unreleased]
+          sed -i '/## \[Unreleased\]/a\\n## [${{ steps.new_version.outputs.new_version }}] - '"$(date +%Y-%m-%d)"'\n\n### Added\n- Version ${{ steps.new_version.outputs.new_version }} release\n' CHANGELOG.md
+        fi
+    
+    - name: Run final tests
+      run: |
+        poetry install --no-interaction
+        poetry run pytest tests/ -v
+        poetry run ruff check .
+        poetry run ruff format --check .
+        poetry run mypy src/secret_guardian
+    
+    - name: Commit version bump
+      run: |
+        git add pyproject.toml CHANGELOG.md
+        git commit -m "chore: bump version to ${{ steps.new_version.outputs.new_version }}"
+        git push origin main
+    
+    - name: Create and push tag
+      run: |
+        git tag -a "v${{ steps.new_version.outputs.new_version }}" -m "Release version ${{ steps.new_version.outputs.new_version }}"
+        git push origin "v${{ steps.new_version.outputs.new_version }}"
+    
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.new_version.outputs.new_version }}
+        release_name: Secret Guardian v${{ steps.new_version.outputs.new_version }}
+        body: |
+          ## Secret Guardian v${{ steps.new_version.outputs.new_version }}
+          
+          This release includes the following changes:
+          
+          ### What's Changed
+          - Updated to version ${{ steps.new_version.outputs.new_version }}
+          - All tests passing
+          - Code quality checks passed
+          
+          ### Installation
+          
+          ```bash
+          pip install secret-guardian==${{ steps.new_version.outputs.new_version }}
+          ```
+          
+          Or with Poetry:
+          
+          ```bash
+          poetry add secret-guardian==${{ steps.new_version.outputs.new_version }}
+          ```
+          
+          ### Usage
+          
+          ```bash
+          # Scan current directory for secrets
+          secret-guardian scan
+          
+          # Get detailed statistics
+          secret-guardian stats
+          
+          # Show supported patterns
+          secret-guardian patterns
+          ```
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.current_version.outputs.current_version }}...v${{ steps.new_version.outputs.new_version }}
+        draft: false
+        prerelease: ${{ github.event.inputs.pre_release }}
+    
+    - name: Create release summary
+      run: |
+        echo "🎉 **Release v${{ steps.new_version.outputs.new_version }} Prepared**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Version bumped**: ${{ steps.current_version.outputs.current_version }} → ${{ steps.new_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Tag created**: v${{ steps.new_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **GitHub Release created**: [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.new_version.outputs.new_version }})" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **CI/CD Pipeline**: Will automatically deploy to PyPI" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The CI/CD pipeline will now automatically:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Run all tests across Python versions" >> $GITHUB_STEP_SUMMARY
+        echo "2. Perform security scans" >> $GITHUB_STEP_SUMMARY
+        echo "3. Build and publish to PyPI" >> $GITHUB_STEP_SUMMARY
+        echo "4. Update documentation" >> $GITHUB_STEP_SUMMARY

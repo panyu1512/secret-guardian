@@ -1,0 +1,113 @@
+name: Maintenance
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  # Job 1: Update dependencies
+  update-dependencies:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Update dependencies
+      run: |
+        poetry update
+        poetry show --outdated || true
+    
+    - name: Run tests with updated dependencies
+      run: |
+        poetry install --no-interaction
+        poetry run pytest tests/ -v
+    
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update dependencies'
+        title: '🔄 Weekly Dependency Update'
+        body: |
+          Automated dependency update by GitHub Actions.
+          
+          This PR updates all dependencies to their latest compatible versions.
+          
+          - All tests are passing with the updated dependencies
+          - Please review the changes and merge if everything looks good
+        branch: maintenance/update-dependencies
+        delete-branch: true
+
+  # Job 2: Security audit
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Install dependencies
+      run: poetry install --no-interaction
+    
+    - name: Run security audit
+      run: |
+        # Install safety for security checks
+        poetry add --group dev safety
+        poetry run safety check --json > safety_report.json || true
+        
+        # Display results
+        echo "📊 Security Audit Results:"
+        cat safety_report.json
+    
+    - name: Run Secret Guardian on itself
+      run: |
+        echo "🔍 Running Secret Guardian self-scan:"
+        poetry run python -m secret_guardian scan --format json > self_scan.json
+        cat self_scan.json
+        
+        # Check if any secrets were found
+        SECRETS_COUNT=$(poetry run python -c "import json; data=json.load(open('self_scan.json')); print(len(data.get('secrets', [])))")
+        
+        if [ "$SECRETS_COUNT" -gt "0" ]; then
+          echo "⚠️ Found $SECRETS_COUNT potential secrets in the codebase!"
+          exit 1
+        else
+          echo "✅ No secrets detected in the codebase"
+        fi
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          safety_report.json
+          self_scan.json
