@@ -322,18 +322,13 @@ class SecretScanner:
             hardcoded_count = len(high_conf)
 
             if hardcoded_count > 0:
-                msg = (
-                    f"🚨 CRITICAL: {hardcoded_count} hardcoded secrets "
-                    f"detected!"
-                )
+                msg = f"🚨 CRITICAL: {hardcoded_count} hardcoded secrets " f"detected!"
                 print(msg)
                 print("   These secrets are directly embedded in your code!")
 
             if count > hardcoded_count:
                 other_count = count - hardcoded_count
-                msg = (
-                    f"⚠️  WARNING: {other_count} other potential secrets found"
-                )
+                msg = f"⚠️  WARNING: {other_count} other potential secrets found"
                 print(msg)
 
             print(f"\n📋 Details of all {count} findings:")
@@ -353,8 +348,7 @@ class SecretScanner:
 
         if filtered_matches and raise_on_secrets:
             raise SecretFoundError(
-                filtered_matches,
-                f"Found {len(filtered_matches)} secrets in the code"
+                filtered_matches, f"Found {len(filtered_matches)} secrets in the code"
             )
 
         return filtered_matches
