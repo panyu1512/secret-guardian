@@ -28,9 +28,15 @@ jobs:
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: latest
+        version: 1.8.3
         virtualenvs-create: true
         virtualenvs-in-project: true
+        installer-parallel: true
+    
+    - name: Verify Poetry installation
+      run: |
+        poetry --version
+        poetry config --list
     
     - name: Load cached venv
       id: cached-poetry-dependencies
@@ -41,7 +47,8 @@ jobs:
     
     - name: Install dependencies
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: poetry install --no-interaction --no-root
+      run: |
+        poetry install --no-interaction --no-root --only=main,dev
     
     - name: Install project
       run: poetry install --no-interaction
@@ -83,9 +90,10 @@ jobs:
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: latest
+        version: 1.8.3
         virtualenvs-create: true
         virtualenvs-in-project: true
+        installer-parallel: true
     
     - name: Install dependencies
       run: poetry install --no-interaction
@@ -119,9 +127,10 @@ jobs:
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: latest
+        version: 1.8.3
         virtualenvs-create: true
         virtualenvs-in-project: true
+        installer-parallel: true
     
     - name: Extract version from tag
       id: tag_version
@@ -210,9 +219,10 @@ jobs:
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: latest
+        version: 1.8.3
         virtualenvs-create: true
         virtualenvs-in-project: true
+        installer-parallel: true
     
     - name: Install dependencies
       run: poetry install --no-interaction
