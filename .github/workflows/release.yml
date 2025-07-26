@@ -107,21 +107,19 @@ jobs:
         git push origin "v${{ steps.new_version.outputs.new_version }}"
     
     - name: Create GitHub Release
-      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ steps.new_version.outputs.new_version }}
-        release_name: Secret Guardian v${{ steps.new_version.outputs.new_version }}
-        body: |
-          ## Secret Guardian v${{ steps.new_version.outputs.new_version }}
+      run: |
+        gh release create "v${{ steps.new_version.outputs.new_version }}" \
+          --title "Secret Guardian v${{ steps.new_version.outputs.new_version }}" \
+          --notes "## Secret Guardian v${{ steps.new_version.outputs.new_version }}
           
           This release includes the following changes:
           
           ### What's Changed
           - Updated to version ${{ steps.new_version.outputs.new_version }}
           - All tests passing
-          - Code quality checks passed
+          - Code quality checks passed"
           
           ### Installation
           
