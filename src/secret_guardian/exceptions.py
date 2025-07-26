@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING, Optional, Sequence
 
 if TYPE_CHECKING:
