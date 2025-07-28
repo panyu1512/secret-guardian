@@ -162,7 +162,9 @@ jobs:
         fi
     
     - name: Install dependencies
-      run: poetry install --no-interaction --with dev
+      run: |
+        poetry install --no-interaction --with dev
+        poetry run pip install twine  # Install in Poetry's venv
     
     - name: Build package
       run: poetry build
@@ -172,7 +174,7 @@ jobs:
         echo "📦 Package contents:"
         ls -la dist/
         echo ""
-        echo "📋 Package metadata:"
+        echo "📋 Package metadata validation:"
         poetry run twine check dist/*
     
     - name: Publish to Test PyPI

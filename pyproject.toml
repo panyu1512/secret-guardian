@@ -36,7 +36,6 @@ pytest-cov = "^4.1.0"
 ruff = "^0.1.8"
 mypy = "^1.5.0"
 pre-commit = "^3.0.0"
-twine = "^4.0.0"
 
 [tool.poetry.scripts]
 secret-guardian = "secret_guardian.cli:main"
