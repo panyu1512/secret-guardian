@@ -164,7 +164,6 @@ jobs:
     - name: Install dependencies
       run: |
         poetry install --no-interaction --with dev
-        poetry run pip install twine  # Install in Poetry's venv
     
     - name: Build package
       run: poetry build
