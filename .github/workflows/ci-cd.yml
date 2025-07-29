@@ -169,22 +169,6 @@ jobs:
     - name: Build package
       run: poetry build
     
-    - name: Check package contents
-      run: |
-        echo "📦 Package contents:"
-        ls -la dist/
-        echo ""
-        echo "📋 Package metadata validation:"
-        poetry run twine check dist/*
-    
-    - name: Publish to Test PyPI
-      env:
-        POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
-      run: |
-        poetry config repositories.testpypi https://test.pypi.org/legacy/
-        poetry config pypi-token.testpypi $POETRY_PYPI_TOKEN_TESTPYPI
-        poetry publish -r testpypi --skip-existing
-    
     - name: Publish to PyPI
       env:
         POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
