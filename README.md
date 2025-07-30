@@ -1,4 +1,5 @@
 # Secret Guardian
+[![PyPi version](https://img.shields.io/pypi/v/guardian.svg?style=flat-square)](https://pypi.org/project/secret-guardian)
 
 A Python library for detecting secrets and API keys 
 
